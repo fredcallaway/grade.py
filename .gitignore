@@ -1,0 +1,4 @@
+build/
+dist/
+gradepy.egg-info/
+*.pyc
