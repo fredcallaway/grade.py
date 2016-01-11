@@ -14,6 +14,8 @@ import traceback
 import inspect
 import imp
 import os
+import string
+
 
 def command_line_tool(tester):
     import argparse
@@ -48,10 +50,10 @@ class Check(object):
         # calling function (or module). This prevents us from requiring
         # the user to supply locals() as an argument.
         self.env = inspect.stack()[1][0].f_locals
-
-        self.expr = expr.format(**self.env)
+        self.expr = literal_format(expr, **self.env)
         if note:
-            self.note = '\n  Note: {}'.format(note.format(**self.env))
+            self.note = '\n Note: ' + literal_format(note, **self.env)
+            #self.note = '\n  Note: {}'.format(note.format(**self.env))
         else:
             self.note = ''
 
@@ -59,10 +61,10 @@ class Check(object):
         try:
             module_env = self.env['module'].__dict__
             self.val = eval(self.expr, module_env, self.env)
-            if isinstance(self.val, str):
-                self.val = "'" + self.val + "'"
         except Exception as e:
             self.val = StudentException(e, skip=4)
+
+
 
 
 class Tester(object):
@@ -149,7 +151,10 @@ class Tester(object):
             else:
                 if isinstance(master, Check):
                     if isinstance(master.val, StudentException):
-                        raise TestError('Exception from master module:\n' + str(master.val))
+                        # The test method should never raise exceptions when using
+                        # the master method. The test method must be broken.
+                        raise TestError('Exception raised when running test method '
+                                        'using master module:\n' + str(master.val))
                     mistakes.append(self._check_new(master,student))
                 else:
                     mistakes.append(self._check_simple(master, student))
@@ -157,13 +162,14 @@ class Tester(object):
 
     def _check_new(self, master, student):
         if isinstance(student.val, StudentException):
-            self.log('\n{master.expr} should be {master.val}, but student code raised '
-                     'an exception:\n{student.val}{student.note}'
-                     .format(**locals()))
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, but student code raised '
+                     'an exception:\n{student.val}{student.note:q}', **locals()))
             return 'exception'
         elif master.val != student.val or type(master.val) != type(student.val):
-            self.log('\n{master.expr} should be {master.val}, but it is {student.val}'
-                     '{student.note}'.format(**locals()))
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, but it is {student.val}'
+                     '{student.note:q}', **locals()))
+            #self.log('\n{master.expr} should be {master.val}, but it is {student.val}'
+            #         '{student.note}'.format(**locals()))
             return 'incorrect'
 
     def _check_simple(self, master, student):
@@ -221,3 +227,29 @@ class StudentException(Exception):
         return self.tb
 
 class TestError(Exception): pass
+
+
+
+def literal_format(fmt_string, **kwargs):
+    """Formats strings, keeping quotations in string values.
+
+    >>> literal_format('string: {foo}', foo='bar')
+    "string: 'bar'"
+
+    Using the q spec will remove quotations, as in standard formatting.
+
+    >>> literal_format('string: {foo:q}', foo='bar')
+    "string: bar"
+    """
+    class Template(string.Formatter):
+        def format_field(self, value, spec):
+            if spec.endswith('q'):
+                spec = spec[:-1] + 's'
+            elif isinstance(value, str):
+                value = value.encode('string-escape')
+                value = "'" + value + "'"
+            return super(Template, self).format_field(value, spec)
+    result =  Template().format(fmt_string, **kwargs)
+    if result.endswith("''"):
+        import IPython; IPython.embed()
+    return result

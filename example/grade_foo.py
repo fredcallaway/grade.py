@@ -15,16 +15,16 @@ import masterfoo
 
 class TestFoo(Tester):
     """Tests foo.py"""
-    # All Tester subclasses must import some module as `master_mod`
     master_mod = masterfoo
     mod_name = 'foo'
 
     def __init__(self, path):
         super(TestFoo, self).__init__(path)
-        self.tests = [self.test_foo,
+        self.tests = [
+                      self.test_foo,
                       self.test_add_one,
                       self.test_divide,
-                      self.test_add_two,
+                      self.test_add_two
                       ]
 
     @ECF(tests=['add_one'])  # marks the function for error carried forward, more below
@@ -34,7 +34,7 @@ class TestFoo(Tester):
         # The yield statement below can be read as:
         # assert student.add_one(1) == master.add_one(1).
         yield module.add_one(1), 'This is simple: add_one(1)'
-        # This line uses the simpler stile, yielding an expression along with
+        # This line uses the simpler style, yielding an expression along with
         # a name for it. This name will get pludgged into the feedback:
         # "{name} should be {m_val}, but it is {s_val}" where m_val
         # and s_val are the values depending on which module is used.
@@ -49,13 +49,20 @@ class TestFoo(Tester):
         # Note that the namespace of `module` as well as this local name space will
         # be available during evaluation. All strings will be formatted by this
         # same name space, so {big} below will be replaced by 100 in the evaluation
-        # as well as the feedback
+        # as well as the feedback.
         big = 100
         yield Check('add_one({big})', "It's okay, {big} is a hard one")
 
         # add_one(100) causes an exception, but the test below will still run
-        quip = "takes one to know"
-        yield Check("add_one('{quip}')")
+        quip = 'takes one to know'
+        yield Check('add_one(quip)')
+
+        # If we want the value of a variable to be printed in the output,
+        # rather than the name, we can put brackets around the variable.
+        # Note that {quip} below will be replaced by 'takes one to know'
+        # with quotations preserved.
+        yield Check('add_one({quip})')
+
 
     def test_foo(self, module):
         """Demonstrates testing a stateful class."""
@@ -66,11 +73,11 @@ class TestFoo(Tester):
         # side effects. However, if the line below raises an exception, it will
         # prevent the completion of the test method.
         foo.bar()
-        yield Check('foo.arg', 'foo.bar() does not change foo.arg')
+        yield Check('foo.arg', 'after calling foo.bar()')
 
         # The code executed in Checks has side effects as well.
         yield Check('foo.bar()')
-        yield Check('foo.arg', 'foo.bar() still does not change foo.arg')
+        yield Check('foo.arg', 'after calling foo.bar() twice')
 
     # A very nice feature of grade.py is automated error carried forward.
     # We track error carried forward using a decorator. The `tests` parameter
@@ -104,8 +111,6 @@ class TestFoo(Tester):
 
 
 if __name__ == '__main__':
-    #tester = TestFoo('flc37')
-    #tester.run()
     command_line_tool(TestFoo)
 
 """"
@@ -119,10 +124,10 @@ Automated testing for flc37/foo.py
 ---------- test_foo ----------
 
 foo.arg should be '222', but it is '22'
-  Note: foo.bar() does not change foo.arg
+ Note: after calling foo.bar()
 
 foo.arg should be '222222222', but it is '2222'
-  Note: foo.bar() still does not change foo.arg
+ Note: after calling foo.bar() twice
 
 -------- test_add_one --------
 
@@ -133,19 +138,23 @@ add_one(4) should be 5, but it is 0
 add_one(100) should be 101, but student code raised an exception:
   File "flc37/foo.py", line 15, in add_one
     1/0
-ZeroDivisionError: division by zero
-  Note: It's okay, 100 is a hard one
+ZeroDivisionError: integer division or modulo by zero
+ Note: It's okay, 100 is a hard one
+
+add_one(quip) should be 'takes one to know one', but it is 'takes one to know two'
 
 add_one('takes one to know') should be 'takes one to know one', but it is 'takes one to know two'
 
 -------- test_divide ---------
 
+divide(2, 4) should be 0.5, but it is 0
+
 Fatal exception in student code. Cannot finish test.
-  File "grade_foo.py", line 102, in test_divide
+  File "grade_foo.py", line 109, in test_divide
     zero = module.divide(1, 0)  # exception, test_method ends
   File "flc37/foo.py", line 23, in divide
     return x / y
-ZeroDivisionError: division by zero
+ZeroDivisionError: integer division or modulo by zero
 
 -------- test_add_two --------
 
