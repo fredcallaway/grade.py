@@ -226,8 +226,8 @@ class StudentException(Exception):
     def __str__(self):
         return self.tb
 
-class TestError(Exception): pass
-
+class TestError(Exception):
+    """Indicates that something is wrong with the test script."""
 
 
 def literal_format(fmt_string, **kwargs):
@@ -249,7 +249,7 @@ def literal_format(fmt_string, **kwargs):
                 value = value.encode('string-escape')
                 value = "'" + value + "'"
             return super(Template, self).format_field(value, spec)
+
     result =  Template().format(fmt_string, **kwargs)
-    if result.endswith("''"):
-        import IPython; IPython.embed()
+
     return result
