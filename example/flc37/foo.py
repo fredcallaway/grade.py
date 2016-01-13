@@ -1,3 +1,5 @@
+import utils
+
 class Foo(object):
     """docstring for Foo"""
     def __init__(self, arg):

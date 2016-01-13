@@ -4,6 +4,8 @@ This would be created by the instructor in the process of writing the
 assignment.
 """
 
+import utils
+
 class Foo(object):
     """docstring for Foo"""
     def __init__(self, arg):

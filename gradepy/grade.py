@@ -1,6 +1,6 @@
 """Object oriented grading of python modules.
 
-Defines an abstract base class, Tester, to be used for grading
+Defines an abstract base class, TestBase, to be used for grading
 python modules. This module differs from standard testing 
 strategies in two major ways. First, it relies on a correct
 implementation of the module, making the creation of test
@@ -15,6 +15,7 @@ import inspect
 import imp
 import os
 import string
+import sys
 
 
 def command_line_tool(tester):
@@ -32,7 +33,7 @@ def command_line_tool(tester):
 
 
 class Check(object):
-    """Provides an interface for testing with Tester.
+    """Provides an interface for testing with TestBase.
 
     Args:
         expr (str): a python expression, the value of which will be verified.
@@ -67,7 +68,7 @@ class Check(object):
 
 
 
-class Tester(object):
+class TestBase(object):
     """A class for grading modules.
 
     This class is an abstract base class which must be subclassed.
@@ -75,13 +76,13 @@ class Tester(object):
     """
     def __init__(self, path):
         self._bad_funcs = set()
-
+        sys.path.append(path)
         # Set up modules.
         try:        
             mod_junk = imp.find_module(self.mod_name, [path])
         except ImportError:
             if not os.path.isdir(path):
-                raise IOError("'{}' is not a valid path.".format(path))
+                raise IOError("'{}' is not a directory.".format(path))
             else:
                 filename = self.mod_name + '.py'
                 raise IOError("No file '{}' found in path '{}'"

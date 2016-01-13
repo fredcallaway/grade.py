@@ -10,13 +10,12 @@ the value is different using the student and master modules, this
 will be recorded in the report, which is meant to be used directly
 as feedback to students, along with human-written comments.
 """
-from gradepy import Tester, Check, ECF, command_line_tool
-import masterfoo
+from gradepy import TestBase, Check, ECF
 
-class TestFoo(Tester):
+class TestFoo(TestBase):
     """Tests foo.py"""
-    master_mod = masterfoo
     mod_name = 'foo'
+    from master import foo as master_mod
 
     def __init__(self, path):
         super(TestFoo, self).__init__(path)
@@ -109,9 +108,6 @@ class TestFoo(Tester):
         zero = module.divide(1, 0)  # exception, test_method ends
         yield zero, "we won't get this far..."
 
-
-if __name__ == '__main__':
-    command_line_tool(TestFoo)
 
 """"
 OUTPUT:

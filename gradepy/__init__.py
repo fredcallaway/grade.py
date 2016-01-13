@@ -1,1 +1,3 @@
-from .grade import Tester, Check, ECF, command_line_tool
+from .grade import TestBase, Check, ECF, command_line_tool
+
+TEST_DIRS = ['/Users/fred/grade.py/example']
