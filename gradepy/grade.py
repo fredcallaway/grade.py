@@ -1,6 +1,6 @@
 """Object oriented grading of python modules.
 
-Defines an abstract base class, TestBase, to be used for grading
+Defines an abstract base class, Tester, to be used for grading
 python modules. This module differs from standard testing 
 strategies in two major ways. First, it relies on a correct
 implementation of the module, making the creation of test
@@ -18,22 +18,9 @@ import string
 import sys
 
 
-def command_line_tool(tester):
-    import argparse
-    details = ('Each argument should be the path to a directory containing '
-               ' a student submission.')
-    parser = argparse.ArgumentParser(description='Tests student python modules.',
-                                     epilog=details)
-    parser.add_argument('students', nargs='+', metavar='student',
-                        help='directories containing student submissions')
-
-    args = parser.parse_args()
-    for s in args.students:
-        tester(s).run()
-
 
 class Check(object):
-    """Provides an interface for testing with TestBase.
+    """Provides an interface for testing with Tester.
 
     Args:
         expr (str): a python expression, the value of which will be verified.
@@ -67,36 +54,49 @@ class Check(object):
 
 
 
-
-class TestBase(object):
+class Tester(object):
     """A class for grading modules.
 
     This class is an abstract base class which must be subclassed.
     See show_grade.py for example usage.
     """
-    def __init__(self, path):
+    def __init__(self, master_mod, student_file):
+        self.master_mod = master_mod
         self._bad_funcs = set()
-        sys.path.append(path)
+
         # Set up modules.
+        path = os.path.dirname(student_file)
+        mod_name = os.path.basename(student_file)[:-3]
+        sys.path.append(path)
         try:        
-            mod_junk = imp.find_module(self.mod_name, [path])
-        except ImportError:
-            if not os.path.isdir(path):
-                raise IOError("'{}' is not a directory.".format(path))
+            mod_junk = imp.find_module(mod_name, [path])
+        except ImportError as e:
+            if not os.path.isfile(student_file):
+                raise IOError("No such file: '{}'"
+                              .format(student_file))
             else:
-                filename = self.mod_name + '.py'
-                raise IOError("No file '{}' found in path '{}'"
-                              .format(filename, path))
+                raise e
         else:
             self.student_mod = imp.load_module('student_mod', *mod_junk)
             self.ecf_mod = imp.load_module('ecf_mod', *mod_junk)
             assert self.ecf_mod is not self.student_mod
 
         self.log('\n\n' + '=' * 70)
-        self.log('Automated testing for ' + path + '/' + self.mod_name + '.py')
+        self.log('Automated testing for ' + student_file)
         self.log('=' * 70)
 
-    def run_test(self, test, ecf=False):
+    def run_tests(self, *test_funcs):
+        """Runs all test methods of the instance as given by self.tests."""
+
+        #methods = inspect.getmembers(self, predicate=inspect.ismethod)
+        for tm in test_funcs:
+            self._run_test(tm)
+        return self
+
+    def log(self, msg):
+        print(msg)
+
+    def _run_test(self, test, ecf=False):
         """Runs a single test method.
 
         Args:
@@ -115,19 +115,6 @@ class TestBase(object):
 
         return mistakes
 
-    def run(self):
-        """Runs all test methods of the instance as given by self.tests."""
-
-        #methods = inspect.getmembers(self, predicate=inspect.ismethod)
-        #test_methods = (m[1] for m in methods if m[0].startswith('test_'))
-        test_methods = self.tests
-        for tm in test_methods:
-            self.run_test(tm)
-        return self
-
-    def log(self, msg):
-        print(msg)
-
     def _compare(self, master_out, student_out):
         mistakes = []
         # We could catch errors arising from student code being executed in test
@@ -145,7 +132,7 @@ class TestBase(object):
                 student = next(student_out)
             except StopIteration:
                 raise TestError('Test method yielded too few elements for student.')
-            except Exception as e:
+            except ArithmeticError as e:
                 err = StudentException(e, skip=3)
                 self.log('\nFatal exception in student code. '
                          'Cannot finish test.\n' + str(err))
@@ -188,7 +175,7 @@ class TestBase(object):
             bad_helpers = [f for f in test.depends if f in self._bad_funcs]
             if bad_helpers:
                 self.log('Trying again with helper functions corrected.')
-                mistakes = self.run_test(test, ecf=True)
+                mistakes = self._run_test(test, ecf=True)
                 if not any(mistakes):
                     self.log('Problem solved!')
 
