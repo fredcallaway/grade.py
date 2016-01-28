@@ -1,19 +1,50 @@
 # grade.py
-A package for grading python assignments.
+`grade.py` is a testing framework that aids in grading python assignments. `grade.py` gracefully handles exceptions and offers error carried forward support.
 
-This module differs from standard testing strategies in two major ways. First, it relies on a correct implementation of the module, making the creation of test cases very easy. Second, it is designed to identify graded quality of performance, rather than giving binary PASS/FAIL judgements. It also provides Error Carried Forward functionality.
+This package differs from standard testing frameworks in two major ways. First, it relies on a correct implementation of the module, making test scripts quick to write and enabling error carried forward. Second, it is designed to identify graded quality of performance, rather than giving binary PASS/FAIL judgements.
 
 ## Usage
 
-As an end user, usage is very simple. Use the command line interface: `grade.py path/to/student/module.py`. It should behave like a typical Unix utility. For example, one could test all the python modules in a directory of student submissions with the command: `grade.py students/*/*.py`. 
+As an end user (i.e. a grader), usage is simple:
+
+    $ grade.py path/to/student/module.py
+
+For example, one could test all the python modules in a directory of student submissions with the command: `grade.py students/*/*.py`. Of course, this will only work if testing scripts have been appropriately registered by the lead grader.
 
 ## Writing test scripts
 
-This package is unusual among testing packages in that it requires a correct implementation of the module being tested. Thus writing a test script comes in two phases: 
+Writing a test script comes in two phases: 
 
 1. Correctly implement the assigned module specification.
-2. Write a script that generates output using that module.
+2. Write a test suite with functions that generate output using the module.
 
-In lieu of extensive documentation, we provide a detailed example with commentary. See `example/`, which includes two "student submisions" along with an example grading package.
+### Example test function
 
-To create a new test, first copy the boilerplate from `test/grade_template/`. A package in the `tests/` directory that follows the naming convention `grade_MODULE/` will be used to grade any module with the name `MODULE`. Putting the module in this directory makes it visible to the `grade.py` command line tool. Alternatively one can place the package wherever one likes, and directly execute the package, e.g. `python2 grade_foo flc37/foo.py`. 
+```python
+def test_foo(module):
+    for i in range(10):
+        yield Check('foo({i})', note='good effort')
+```
+
+This function might generate the following output:
+
+```
+foo(1) should be 1, but it is 1.0
+  Note: good effort
+
+foo(0) should be 0, but student code raised an exception:
+  File "flc37/foo.py", line 15, in foo
+    return 1.0 / x
+ZeroDivisionError: integer division or modulo by zero
+ Note: good effort
+
+```
+
+
+See `example/`, which includes two "student submisions" along with an example grading package and detailed commentary.
+
+To create a new test, first copy the boilerplate from `test/grade_template/`. A package in the `tests/` directory that follows the naming convention `grade_MODULE/` will be used to grade any module with the name `MODULE`. Putting the module in this directory makes it visible to the `grade.py` command line tool.
+
+## Distributing test scripts
+
+We are still in the process of developing a generalized distribution strategy. At present, the best option is fork this repository and add scripts directly into the repository. Then update the name of the package and upload it to PyPI so that graders can easily download and update the package using `$ pip install gradepy_CLASS`
