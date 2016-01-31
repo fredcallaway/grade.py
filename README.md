@@ -1,6 +1,3 @@
-# CS1110 private grading repository
-
-For the development of grading scripts.
 
 # grade.py
 grade.py is a testing framework that aids in grading python assignments. grade.py gracefully handles exceptions and offers error carried forward support.
@@ -50,4 +47,4 @@ To create a new test, first copy the boilerplate from `test/grade_template/`. A 
 
 ## Distributing test scripts
 
-We are still in the process of developing a generalized distribution strategy. At present, the best option is fork this repository and add scripts directly into the repository. Then update the name of the package and upload it to PyPI so that graders can easily download and update the package using `$ pip install gradepy_CLASS`
+We are still in the process of developing a generalized distribution strategy. At present, the best option is fork this repository and add scripts directly into the repository. Then update the name of the package and upload it to PyPI so that graders can easily download and update the package using e.g. `$ pip install cs1110grading`

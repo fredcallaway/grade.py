@@ -41,7 +41,6 @@ class Check(object):
         self.expr = literal_format(expr, **self.env)
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
-            #self.note = '\n  Note: {}'.format(note.format(**self.env))
         else:
             self.note = ''
 
