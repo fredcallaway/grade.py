@@ -1,3 +1,7 @@
+# CS1110 private grading repository
+
+For the development of grading scripts.
+
 # grade.py
 `grade.py` is a testing framework that aids in grading python assignments. `grade.py` gracefully handles exceptions and offers error carried forward support.
 
