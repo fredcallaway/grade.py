@@ -1,30 +1,68 @@
-BASE_DIR = __file__.rsplit('/', 1)[0]
-TEST_DIRS = ['.',
-             BASE_DIR + '/example',
-             BASE_DIR + '/cs1110']
+from __future__ import print_function
 
-def get_test_func(file):
-    import os
-    import imp
-    mod_name = os.path.basename(file)[:-3]
-    test_name = 'grade_' + mod_name
-    try:
-        mod_junk = imp.find_module(test_name, TEST_DIRS)
-    except ImportError as e:
-        print '\nERROR: No testing script found for {}\n'.format(file)
-        import IPython; IPython.embed()
-        return None
-    test_mod = imp.load_module(test_name, *mod_junk)
-    return test_mod.main
+from contextlib import contextmanager
+import os
+import imp
+import re
 
-def command_line(test_func=None):
+def command_line(tester=None, grade_package=None):
     from argparse import ArgumentParser
     parser = ArgumentParser(description='Tests student python modules.')
     parser.add_argument('files', nargs='+', metavar='file',
-                        help='paths to student modules.')
+                        help='paths to student modules')
+    parser.add_argument('-csv', dest='csv', const=True, action='store_const',
+                        help='create csv from feedback files')
+    parser.add_argument('-test', metavar='regex', type=re.compile,
+                        help='regex query to select test functions')
+    parser.add_argument('-', dest='stdout', const=True, action='store_const', 
+                        help='write to stdout')
 
     args = parser.parse_args()
-    for file in args.files:
-        test = test_func or get_test_func(file)
-        if test:
-            test(file)
+    if args.csv:
+        import makecsv
+        makecsv.main(args.files)
+    else:
+        for file in args.files:
+            tester = tester or get_tester(file, grade_package=grade_package)
+            if tester:
+                if args.stdout:
+                    tester(file, func_re=args.test)
+                else:
+                    with logger(file) as log_func:
+                        tester(file, log_func=log_func, func_re=args.test)
+
+
+def get_tester(file, grade_package=None):
+    mod_name = os.path.basename(file)[:-3]
+    test_name = 'grade_' + mod_name
+
+    try:
+        test_mod = getattr(grade_package, test_name)
+    except AttributeError:
+        try:
+            mod_junk = imp.find_module(test_name, '.')
+        except ImportError:
+            print('\nERROR: No testing script found for {}\n'.format(file))
+            return None
+        test_mod = imp.load_module(test_name, *mod_junk)
+    return test_mod.TESTER
+
+
+@contextmanager
+def logger(file):
+    template = file[:-3] + '_feedback{}.txt'
+    logfile = template.format('')
+
+    # Ensure unique by appending an int.
+    i = 0
+    while os.path.exists(logfile):
+        i += 1
+        logfile = template.format(i)
+
+    log = open(logfile, 'w+')
+    def writer(msg):
+        log.write(msg + '\n')
+
+    yield writer
+
+    log.close()

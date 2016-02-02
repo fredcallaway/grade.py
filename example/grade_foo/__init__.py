@@ -1,1 +1,1 @@
-from tests import main
+from tests import TESTER

@@ -1,4 +1,3 @@
-import utils
 
 class Foo(object):
     """docstring for Foo"""

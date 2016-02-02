@@ -9,11 +9,23 @@ expression that is yielded is considered to be a sub-test-case. If
 the value is different using the student and master modules, this
 will be recorded in the report, which is meant to be used directly
 as feedback to students, along with human-written comments.
+
+Test functions must be marked with the TESTER.register decorator.
+You can optioally provide information about what function(s) the
+function tests for error carried forward.
+
+doc strings will be included in the report. You can simply provide
+a simple high level description of the test, but you can also provide
+more detail about how to interpret results. This could replace an
+independent rubric.
 """
-from gradepy import Tester, Check, ECF
+from gradepy import Tester, Check
+
+from master import foo
+TESTER = Tester(foo, points=1865, note='An example grading program.')
 
 
-@ECF(tests=['add_one'])  # marks the function for error carried forward, more below
+@TESTER.register(tests=['add_one'])
 def test_add_one(module):
     """Demonstrates testing a simple function on a list of arguments."""
 
@@ -50,6 +62,7 @@ def test_add_one(module):
     yield Check('add_one({quip})')
 
 
+@TESTER.register()
 def test_foo(module):
     """Demonstrates testing a stateful class."""
     foo = module.Foo('2')
@@ -64,6 +77,7 @@ def test_foo(module):
     # The code executed in Checks has side effects as well.
     yield Check('foo.bar()')
     yield Check('foo.arg', 'after calling foo.bar() twice')
+
 
 # A very nice feature of grade.py is automated error carried forward.
 # We track error carried forward using a decorator. The `tests` parameter
@@ -81,57 +95,44 @@ def test_foo(module):
 # which functions may be changed during ECF. The current implementation
 # never removes a correct solution function from the ECF module after it
 # is added. It is not clear to me what the best way to handle this is.
-@ECF(depends=['add_one'])
+
+@TESTER.register(depends=['add_one'])
 def test_add_two(module):
     yield Check('add_two(1)')
     yield Check('add_two(2)')
 
+
+@TESTER.register()
 def test_divide(module):
     """Demonstrates how uncaught exceptions are handled.
 
-    Also demonstrates the inferiority of python 2
+    Also demonstrates the inferiority of python 2.
     """
     yield module.divide(2, 4), 'divide(2, 4)'
     zero = module.divide(1, 0)  # exception, test_method ends
     yield zero, "we won't get this far..."
 
 
-TESTS = [
-         test_foo,
-         test_divide,
-         test_add_one,
-         test_add_two
-         ]
-
-def main(student_file):
-    from master import foo
-    return Tester(foo, student_file).run_tests(*TESTS)
-
-
-""""
+'''
 OUTPUT:
 
-
 ======================================================================
-Automated testing for flc37/foo.py
+Automated testing for example/flc37/foo.py
 ======================================================================
 
----------- test_foo ----------
+An example grading program.
 
-foo.arg should be '222', but it is '22'
- Note: after calling foo.bar()
-
-foo.arg should be '222222222', but it is '2222'
- Note: after calling foo.bar() twice
+Maximum points: 1865
 
 -------- test_add_one --------
+"""Demonstrates testing a simple function on a list of arguments."""
 
 This is simple: add_one(1) should be 2, but it is 0
 
 add_one(4) should be 5, but it is 0
 
 add_one(100) should be 101, but student code raised an exception:
-  File "flc37/foo.py", line 15, in add_one
+  File "example/flc37/foo.py", line 17, in add_one
     1/0
 ZeroDivisionError: integer division or modulo by zero
  Note: It's okay, 100 is a hard one
@@ -140,16 +141,14 @@ add_one(quip) should be 'takes one to know one', but it is 'takes one to know tw
 
 add_one('takes one to know') should be 'takes one to know one', but it is 'takes one to know two'
 
--------- test_divide ---------
+---------- test_foo ----------
+"""Demonstrates testing a stateful class."""
 
-divide(2, 4) should be 0.5, but it is 0
+foo.arg should be '222', but it is '22'
+ Note: after calling foo.bar()
 
-Fatal exception in student code. Cannot finish test.
-  File "grade_foo.py", line 109, in test_divide
-    zero = module.divide(1, 0)  # exception, test_method ends
-  File "flc37/foo.py", line 23, in divide
-    return x / y
-ZeroDivisionError: integer division or modulo by zero
+foo.arg should be '222222222', but it is '2222'
+ Note: after calling foo.bar() twice
 
 -------- test_add_two --------
 
@@ -157,4 +156,19 @@ add_two(1) should be 3, but it is 1
 Trying again with helper functions corrected.
 Problem solved!
 
-"""
+-------- test_divide ---------
+"""Demonstrates how uncaught exceptions are handled.
+
+    Also demonstrates the inferiority of python 2."""
+
+divide(2, 4) should be 0.5, but it is 0
+
+Fatal exception in student code. Cannot finish test.
+  File "/Users/fred/cs1110grading/cs1110grade/grade_foo/tests.py", line 107, in test_divide
+    zero = module.divide(1, 0)  # exception, test_method ends
+  File "example/flc37/foo.py", line 25, in divide
+    return x / y
+ZeroDivisionError: integer division or modulo by zero
+
+
+'''

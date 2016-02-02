@@ -10,10 +10,12 @@ judgement. It also provides Error Carried Forward functionality.
 
 See show_grade.py for example usage.
 """
+from __future__ import print_function
 import traceback
 import inspect
 import imp
 import os
+import re
 import string
 import sys
 
@@ -41,6 +43,7 @@ class Check(object):
         self.expr = literal_format(expr, **self.env)
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
+            #self.note = '\n  Note: {}'.format(note.format(**self.env))
         else:
             self.note = ''
 
@@ -54,16 +57,50 @@ class Check(object):
 
 
 class Tester(object):
-    """A class for grading modules.
-
-    This class is an abstract base class which must be subclassed.
-    See show_grade.py for example usage.
-    """
-    def __init__(self, master_mod, student_file):
+    """A class for grading modules."""
+    def __init__(self, master_mod, points=0, note=None):
         self.master_mod = master_mod
-        self._bad_funcs = set()
+        self.test_funcs = []
+        self.points = points
+        self.note = note
 
-        # Set up modules.
+    def __call__(self, student_file, log_func=print, func_re=None):
+        """Runs the tests on one student submission."""
+
+        # This state is student specific, and is thus reset upon every call.
+        self.log = log_func
+        self.bad_funcs = set()
+        self.student_mod, self.ecf_mod = self._get_modules(student_file)
+
+        # Banner.
+        self.log('\n\n' + '=' * 70)
+        self.log('Automated testing for ' + student_file)
+        self.log('=' * 70)
+        if self.note:
+            self.log('\n' + self.note + '\n')
+        if self.points:
+            self.log('Maximum points: {}'.format(self.points))
+        if func_re:
+            self.log("Filtering test functions by regex: '{}'".format(func_re.pattern))
+            tests = (f for f in self.test_funcs if func_re.search(f.__name__))
+        else:
+            tests= self.test_funcs
+        self._run_tests(tests)
+
+    def register(self, tests=[], depends=[]):
+        """Decorator to mark a function as a test function of this Tester.
+
+        Optionally, specifies the student functions that the function
+        with the function names as strings."""
+        def decorator(test_func):
+            self.test_funcs.append(test_func)
+            setattr(test_func, 'tests', set(tests))
+            setattr(test_func, 'depends', set(depends))
+            return test_func
+        return decorator
+
+    def _get_modules(self, student_file):
+        """Returns the student module and a copy for error carried forward."""
         path = os.path.dirname(student_file)
         mod_name = os.path.basename(student_file)[:-3]
         sys.path.append(path)
@@ -76,24 +113,18 @@ class Tester(object):
             else:
                 raise e
         else:
-            self.student_mod = imp.load_module('student_mod', *mod_junk)
-            self.ecf_mod = imp.load_module('ecf_mod', *mod_junk)
-            assert self.ecf_mod is not self.student_mod
+            student_mod = imp.load_module('student_mod', *mod_junk)
+            ecf_mod = imp.load_module('ecf_mod', *mod_junk)
+            assert student_mod is not ecf_mod
+            return student_mod, ecf_mod
 
-        self.log('\n\n' + '=' * 70)
-        self.log('Automated testing for ' + student_file)
-        self.log('=' * 70)
-
-    def run_tests(self, *test_funcs):
+    def _run_tests(self, test_funcs):
         """Runs all test methods of the instance as given by self.tests."""
 
         #methods = inspect.getmembers(self, predicate=inspect.ismethod)
         for tm in test_funcs:
             self._run_test(tm)
         return self
-
-    def log(self, msg):
-        print(msg)
 
     def _run_test(self, test, ecf=False):
         """Runs a single test method.
@@ -102,7 +133,9 @@ class Tester(object):
             test (callable): a test method of self
         """
         if not ecf:  # only write header for the first try
-            self.log('\n{:-^30}'.format(' ' + test.__name__ + ' '))
+            self.log('\n{:-^30}'.format('( ' + test.__name__ + ' )'))
+            if test.__doc__:
+                self.log('"""' + test.__doc__.strip() + '"""')
 
         student_mod = self.ecf_mod if ecf else self.student_mod
         student_out = test(student_mod)
@@ -152,6 +185,7 @@ class Tester(object):
             self.log(literal_format('\n{master.expr:q} should be {master.val}, but student code raised '
                      'an exception:\n{student.val}{student.note:q}', **locals()))
             return 'exception'
+
         elif master.val != student.val or type(master.val) != type(student.val):
             self.log(literal_format('\n{master.expr:q} should be {master.val}, but it is {student.val}'
                      '{student.note:q}', **locals()))
@@ -171,7 +205,7 @@ class Tester(object):
     def _handle_ecf(self, test, ecf):
         # See if this test benefits from ECF.
         if hasattr(test, 'depends') and not ecf:
-            bad_helpers = [f for f in test.depends if f in self._bad_funcs]
+            bad_helpers = [f for f in test.depends if f in self.bad_funcs]
             if bad_helpers:
                 self.log('Trying again with helper functions corrected.')
                 mistakes = self._run_test(test, ecf=True)
@@ -180,7 +214,7 @@ class Tester(object):
 
         # Fix self.ecf_mod for later tested functions.
         if hasattr(test, 'tests'):
-            self._bad_funcs |= test.tests
+            self.bad_funcs |= test.tests
             for func_name in test.tests:
                 # Update ecf module with master version of function
                 master_func = getattr(self.master_mod, func_name)
