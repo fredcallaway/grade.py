@@ -47,11 +47,13 @@ class Check(object):
             self.note = ''
 
         # Evaluate expr within env
-        try:
-            module_env = self.env['module'].__dict__
-            self.val = eval(self.expr, module_env, self.env)
-        except Exception as e:
-            self.val = StudentException(e, skip=4)
+        module_env = self.env['module'].__dict__
+        with capture_stdout() as out:
+            try:
+                self.val = eval(self.expr, module_env, self.env)
+            except Exception as e:
+                self.val = StudentException(e, skip=4)
+        self.stdout = str(out) if str(out) else None
 
 
 
@@ -59,6 +61,7 @@ class Tester(object):
     """A class for grading modules."""
     def __init__(self, master_mod, points=0, note=None):
         self.master_mod = master_mod
+        self._adjust_modules(master_mod)
         self.test_funcs = []
         self.points = points
         self.note = note
@@ -72,6 +75,7 @@ class Tester(object):
         self.log = log_func
         self.bad_funcs = set()
         self.student_mod, self.ecf_mod = self._get_modules(student_file)
+        self._adjust_modules(self.student_mod, self.ecf_mod)
 
         # Banner.
         self.log('\n\n' + '=' * 70)
@@ -118,6 +122,11 @@ class Tester(object):
             ecf_mod = imp.load_module('ecf_mod', *mod_junk)
             assert student_mod is not ecf_mod
             return student_mod, ecf_mod
+
+    def _adjust_modules(self, *modules):
+        for mod in modules:
+            # Don't print the message for raw_input
+            mod.raw_input = lambda msg=None: raw_input()
 
     def _run_tests(self, test_funcs):
         """Runs all test methods of the instance as given by self.tests."""
@@ -185,15 +194,25 @@ class Tester(object):
 
     def _compare_one(self, master, student):
         if isinstance(student.val, StudentException):
-            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
+            self.log(literal_format('\n{master.expr:q} should return {master.val}, '
                      'but student code raised an exception:\n'
                      '{student.val}{student.note:q}', **locals()))
-            return 'exception'
+            return True
 
-        elif master.val != student.val or type(master.val) != type(student.val):
-            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
-                     'but it is {student.val}{student.note:q}', **locals()))
-            return 'value'
+        mistake = False
+
+        if master.val != student.val or type(master.val) != type(student.val):
+            self.log(literal_format('\n{master.expr:q} should return {master.val}, '
+                     'but it returns {student.val}{student.note:q}', **locals()))
+            mistake = True
+
+        if master.stdout != student.stdout:
+            self.log(literal_format('\n{master.expr:q} should print {master.stdout}, '
+                     'but it prints {student.stdout}{student.note:q}', **locals()))
+            mistake = True
+
+        return mistake
+
 
 
 
@@ -259,6 +278,7 @@ def literal_format(fmt_string, **kwargs):
 
     return result
 
+
 from collections import deque
 class FakeStdin:
     def __init__(self):
@@ -275,3 +295,29 @@ class FakeStdin:
 
     def clear(self):
         self._queue.clear()
+
+
+from contextlib import contextmanager
+from cStringIO import StringIO
+@contextmanager
+def capture_stdout():
+    oldout = sys.stdout
+    newout = StringIO()
+    sys.stdout = newout
+
+    class Out:
+        def __str__(self):
+            try:
+                val = newout.getvalue()
+                self._val = val
+                return val
+            except ValueError:
+                # After closing context manager.
+                return self._val
+
+    result = Out()
+    yield result
+
+    str(result)  # set result._val before closing newout
+    newout.close()
+    sys.stdout = oldout

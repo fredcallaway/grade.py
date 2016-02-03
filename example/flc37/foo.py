@@ -28,4 +28,4 @@ def divide(x, y):
 def cook_stdin():
     meatmap = {'cow': 'beef', 'pig': 'pork'}
     animal = raw_input('animal: ')
-    return meatmap[animal]
+    print meatmap[animal]

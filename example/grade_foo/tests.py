@@ -109,7 +109,12 @@ def test_add_two(module):
 
 @TESTER.register()
 def test_raw_input(module):
+    # We simulate stdin as a queue. When cook_stdin() calls raw_input,
+    # it will receive 'pig' as if someone had typed it at the terminal
     TESTER.stdin('pig')
+    # We also capture all stdout of code exectude in a Check. If
+    # the student and master module print different things while
+    # executing cook_stdin(), this will be noted in the feedback.
     yield Check('cook_stdin()')
 
 
