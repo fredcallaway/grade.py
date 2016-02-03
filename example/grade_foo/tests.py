@@ -15,7 +15,7 @@ You can optioally provide information about what function(s) the
 function tests for error carried forward.
 
 doc strings will be included in the report. You can simply provide
-a simple high level description of the test, but you can also provide
+a high level description of the test, or you can provide
 more detail about how to interpret results. This could replace an
 independent rubric.
 """
@@ -31,11 +31,7 @@ def test_add_one(module):
 
     # The yield statement below can be read as:
     # assert student.add_one(1) == master.add_one(1).
-    yield module.add_one(1), 'This is simple: add_one(1)'
-    # This line uses the simpler style, yielding an expression along with
-    # a name for it. This name will get pludgged into the feedback:
-    # "{name} should be {m_val}, but it is {s_val}" where m_val
-    # and s_val are the values depending on which module is used.
+    yield Check('add_one(1)')
 
     for i in range(2, 5):
         # The second style is to use the Check class. This has some advantages
@@ -49,7 +45,7 @@ def test_add_one(module):
     # same name space, so {big} below will be replaced by 100 in the evaluation
     # as well as the feedback.
     big = 100
-    yield Check('add_one({big})', "It's okay, {big} is a hard one")
+    yield Check('add_one({big})', note="It's okay, {big} is a hard one")
 
     # add_one(100) causes an exception, but the test below will still run
     quip = 'takes one to know'
@@ -63,6 +59,16 @@ def test_add_one(module):
 
 
 @TESTER.register()
+def test_divide(module):
+    """Demonstrates how uncaught exceptions are handled.
+
+    Also demonstrates the inferiority of python 2.
+    """
+    zero = module.divide(1, 0)  # exception, test_method ends
+    yield Check('zero', note='This test will not be run.')
+
+
+@TESTER.register()
 def test_foo(module):
     """Demonstrates testing a stateful class."""
     foo = module.Foo('2')
@@ -72,11 +78,11 @@ def test_foo(module):
     # side effects. However, if the line below raises an exception, it will
     # prevent the completion of the test method.
     foo.bar()
-    yield Check('foo.arg', 'after calling foo.bar()')
+    yield Check('foo.arg', note='after calling foo.bar()')
 
     # The code executed in Checks has side effects as well.
     yield Check('foo.bar()')
-    yield Check('foo.arg', 'after calling foo.bar() twice')
+    yield Check('foo.arg', note='after calling foo.bar() twice')
 
 
 # A very nice feature of grade.py is automated error carried forward.
@@ -101,16 +107,10 @@ def test_add_two(module):
     yield Check('add_two(1)')
     yield Check('add_two(2)')
 
-
 @TESTER.register()
-def test_divide(module):
-    """Demonstrates how uncaught exceptions are handled.
-
-    Also demonstrates the inferiority of python 2.
-    """
-    yield module.divide(2, 4), 'divide(2, 4)'
-    zero = module.divide(1, 0)  # exception, test_method ends
-    yield zero, "we won't get this far..."
+def test_raw_input(module):
+    TESTER.stdin('pig')
+    yield Check('cook_stdin()')
 
 
 '''

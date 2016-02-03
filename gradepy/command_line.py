@@ -6,6 +6,7 @@ import imp
 import re
 
 def command_line(tester=None, grade_package=None):
+    print('in cline')
     from argparse import ArgumentParser
     parser = ArgumentParser(description='Tests student python modules.')
     parser.add_argument('files', nargs='+', metavar='file',

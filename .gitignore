@@ -2,3 +2,6 @@ build/
 dist/
 gradepy.egg-info/
 *.pyc
+gradepy.sublime-project
+gradepy.sublime-workspace
+install-files.txt

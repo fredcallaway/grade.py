@@ -21,5 +21,11 @@ def add_one(x):
 def add_two(x):
     return add_one(add_one(x))
 
+
 def divide(x, y):
     return x / y
+
+def cook_stdin():
+    meatmap = {'cow': 'beef', 'pig': 'pork'}
+    animal = raw_input('animal: ')
+    return meatmap[animal]

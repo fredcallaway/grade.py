@@ -43,7 +43,8 @@ class Check(object):
         self.expr = literal_format(expr, **self.env)
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
-            #self.note = '\n  Note: {}'.format(note.format(**self.env))
+        else:
+            self.note = ''
 
         # Evaluate expr within env
         try:
@@ -61,6 +62,8 @@ class Tester(object):
         self.test_funcs = []
         self.points = points
         self.note = note
+        self.stdin = FakeStdin()
+        sys.stdin = self.stdin
 
     def __call__(self, student_file, log_func=print, func_re=None):
         """Runs the tests on one student submission."""
@@ -146,60 +149,53 @@ class Tester(object):
         return mistakes
 
     def _compare(self, master_out, student_out):
+        # Compute all of master_out first so that stdin/stdout doesn't get mixed
+        # between student and master.
+        master_out = list(master_out)
+        
+        self.stdin.clear()  # don't let unused stdin bleed into this test func
         mistakes = []
-        while True:
-            try:
-                master = next(master_out)
-            except StopIteration:
-                # Test function is done with master, confirm that it is done with student.
-                foo = next(student_out, None)
-                if foo is not None:
-                    raise TestError('Test function yielded too many elements for student.')
-                return mistakes
-
+        for master in master_out:
             try:
                 student = next(student_out)
             except StopIteration:
                 # Test function is done with student, but wasn't done with master.
-                raise TestError('Test function yielded too few elements for student.')
+                raise TestError('Test function yielded not enough Checks for student')
 
             except Exception as e:
                 err = StudentException(e, skip=3)
                 self.log('\nFatal exception in student code. '
                          'Cannot finish test.\n' + str(err))
-            else:
-                if isinstance(master, Check):
-                    if isinstance(master.val, StudentException):
-                        # The test function should never raise exceptions when using
-                        # the master module. The test function must be broken.
-                        raise TestError('Exception raised when running test function '
-                                        'using master module:\n' + str(master.val))
-                    mistakes.append(self._check_new(master,student))
-                else:
-                    mistakes.append(self._check_simple(master, student))
-        return mistakes
+                break
+            else:  # no exception
+                if isinstance(master.val, StudentException):
+                    # The test function should never raise exceptions when using
+                    # the master module. The test function must be broken.
+                    raise TestError('Exception raised when running test function '
+                                    'using master module:\n' + str(master.val))
+                mistakes.append(self._compare_one(master, student))
 
-    def _check_new(self, master, student):
+        # Test function is done with master, confirm that it is done with student.
+        foo = next(student_out, None)
+        if foo is not None:
+            raise TestError('Test function yielded too many Checks for student.')
+        
+        return mistakes
+        
+
+    def _compare_one(self, master, student):
         if isinstance(student.val, StudentException):
-            self.log(literal_format('\n{master.expr:q} should be {master.val}, but student code raised '
-                     'an exception:\n{student.val}{student.note:q}', **locals()))
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
+                     'but student code raised an exception:\n'
+                     '{student.val}{student.note:q}', **locals()))
             return 'exception'
 
         elif master.val != student.val or type(master.val) != type(student.val):
-            self.log(literal_format('\n{master.expr:q} should be {master.val}, but it is {student.val}'
-                     '{student.note:q}', **locals()))
-            #self.log('\n{master.expr} should be {master.val}, but it is {student.val}'
-            #         '{student.note}'.format(**locals()))
-            return 'incorrect'
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
+                     'but it is {student.val}{student.note:q}', **locals()))
+            return 'value'
 
-    def _check_simple(self, master, student):
-        master, name = master
-        student, name2 = student
-        assert name == name2
 
-        if master != student or type(master) != type(student):
-            self.log('\n{name} should be {master}, but it is {student}'
-                     .format(**locals()))
 
     def _handle_ecf(self, test, ecf):
         # See if this test benefits from ECF.
@@ -219,17 +215,6 @@ class Tester(object):
                 master_func = getattr(self.master_mod, func_name)
                 setattr(self.ecf_mod, func_name, master_func)
 
-
-class ECF(object):
-    """A wrapper to record ECF-related metadata in the wrapped function."""
-    def __init__(self, tests=[], depends=[]):
-        self.tests = set(tests)
-        self.depends = set(depends)
-    
-    def __call__(self, func):
-        func.__dict__['tests'] = self.tests
-        func.__dict__['depends'] = self.depends
-        return func
 
 
 class StudentException(Exception):
@@ -273,3 +258,20 @@ def literal_format(fmt_string, **kwargs):
     result =  Template().format(fmt_string, **kwargs)
 
     return result
+
+from collections import deque
+class FakeStdin:
+    def __init__(self):
+        self._queue = deque()
+
+    def __call__(self, line):
+        self._queue.append(line)
+
+    def readline(self):
+        try:
+            return self._queue.popleft()
+        except IndexError:
+            raise IOError('No stdin available.')
+
+    def clear(self):
+        self._queue.clear()

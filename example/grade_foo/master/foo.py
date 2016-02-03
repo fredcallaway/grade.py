@@ -12,17 +12,26 @@ class Foo(object):
     def bar(self):
         self.arg *= 3
         
+        
 def add_one(x):
     try:
         return x + 1
     except TypeError:
         return x + ' one'
 
+
 def add_two(x):
     return add_one(add_one(x))
+
 
 def divide(x, y):
     if y == 0:
         return x
     else:
         return x / float(y)
+
+
+def cook_stdin():
+    meatmap = {'cow': 'beef', 'pig': 'bacon'}
+    animal = raw_input('animal: ')
+    return meatmap[animal]
