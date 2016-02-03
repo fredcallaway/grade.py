@@ -44,8 +44,6 @@ class Check(object):
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
             #self.note = '\n  Note: {}'.format(note.format(**self.env))
-        else:
-            self.note = ''
 
         # Evaluate expr within env
         try:
@@ -149,31 +147,32 @@ class Tester(object):
 
     def _compare(self, master_out, student_out):
         mistakes = []
-        # We could catch errors arising from student code being executed in test
-        # methods here.
         while True:
             try:
                 master = next(master_out)
             except StopIteration:
+                # Test function is done with master, confirm that it is done with student.
                 foo = next(student_out, None)
                 if foo is not None:
-                    raise TestError('Test method yielded too many elements for student.')
+                    raise TestError('Test function yielded too many elements for student.')
                 return mistakes
 
             try:
                 student = next(student_out)
             except StopIteration:
-                raise TestError('Test method yielded too few elements for student.')
-            except ArithmeticError as e:
+                # Test function is done with student, but wasn't done with master.
+                raise TestError('Test function yielded too few elements for student.')
+
+            except Exception as e:
                 err = StudentException(e, skip=3)
                 self.log('\nFatal exception in student code. '
                          'Cannot finish test.\n' + str(err))
             else:
                 if isinstance(master, Check):
                     if isinstance(master.val, StudentException):
-                        # The test method should never raise exceptions when using
-                        # the master method. The test method must be broken.
-                        raise TestError('Exception raised when running test method '
+                        # The test function should never raise exceptions when using
+                        # the master module. The test function must be broken.
+                        raise TestError('Exception raised when running test function '
                                         'using master module:\n' + str(master.val))
                     mistakes.append(self._check_new(master,student))
                 else:
