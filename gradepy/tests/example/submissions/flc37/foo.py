@@ -11,12 +11,9 @@ class Foo(object):
 def add_one(x):
     if isinstance(x, str):
         return x + ' two'
-    if x in (1,4):
-        return 0
-    elif x == 100:
-        1/0
+    elif x in (100, 101):
+        return '!?!?!'
     return x + 1
-
 
 def add_two(x):
     return add_one(add_one(x))

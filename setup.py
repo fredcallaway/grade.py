@@ -8,6 +8,5 @@ setup(name='gradepy',
       author_email='fredc@llaway.com',
       license='MIT',
       packages=['gradepy'],  
-      scripts=['bin/grade.py'],
       include_package_data=True,
       zip_safe=False)

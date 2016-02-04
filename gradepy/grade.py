@@ -143,7 +143,7 @@ class Tester(object):
             test (callable): a test method of self
         """
         if not ecf:  # only write header for the first try
-            self.log('\n{:-^30}'.format('( ' + test.__name__ + ' )'))
+            self.log('\n{:-^50}'.format('( ' + test.__name__ + ' )'))
             if test.__doc__:
                 self.log('"""' + test.__doc__.strip() + '"""')
 
@@ -194,7 +194,7 @@ class Tester(object):
 
     def _compare_one(self, master, student):
         if isinstance(student.val, StudentException):
-            self.log(literal_format('\n{master.expr:q} should return {master.val}, '
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
                      'but student code raised an exception:\n'
                      '{student.val}{student.note:q}', **locals()))
             return True
@@ -202,8 +202,8 @@ class Tester(object):
         mistake = False
 
         if master.val != student.val or type(master.val) != type(student.val):
-            self.log(literal_format('\n{master.expr:q} should return {master.val}, '
-                     'but it returns {student.val}{student.note:q}', **locals()))
+            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
+                     'but it is {student.val}{student.note:q}', **locals()))
             mistake = True
 
         if master.stdout != student.stdout:
@@ -284,7 +284,7 @@ class FakeStdin:
     def __init__(self):
         self._queue = deque()
 
-    def __call__(self, line):
+    def put(self, line):
         self._queue.append(line)
 
     def readline(self):
