@@ -5,3 +5,4 @@ gradepy.egg-info/
 gradepy.sublime-project
 gradepy.sublime-workspace
 install-files.txt
+venv/
