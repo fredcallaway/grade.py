@@ -4,9 +4,9 @@ from contextlib import contextmanager
 import os
 import imp
 import re
+import sys
 
 def command_line(tester=None, grade_package=None):
-    print('in cline')
     from argparse import ArgumentParser
     parser = ArgumentParser(description='Tests student python modules.')
     parser.add_argument('files', nargs='+', metavar='file',
@@ -23,14 +23,19 @@ def command_line(tester=None, grade_package=None):
         import makecsv
         makecsv.main(args.files)
     else:
-        for file in args.files:
-            tester = tester or get_tester(file, grade_package=grade_package)
-            if tester:
-                if args.stdout:
-                    tester(file, func_re=args.test)
-                else:
-                    with logger(file) as log_func:
-                        tester(file, log_func=log_func, func_re=args.test)
+        run_tests(args, tester, grade_package)
+
+
+def run_tests(args, tester=None, grade_package=None):
+    for file in args.files:
+        tester = tester or get_tester(file, grade_package=grade_package)
+        if tester:
+            if args.stdout:
+                tester(file, func_re=args.test)
+            else:
+                with logger(file) as log_func:
+                    tester(file, log_func=log_func, func_re=args.test)
+                    print('Wrote feedback to ' + log_func.file)
 
 
 def get_tester(file, grade_package=None):
@@ -43,7 +48,8 @@ def get_tester(file, grade_package=None):
         try:
             mod_junk = imp.find_module(test_name, '.')
         except ImportError:
-            print('\nERROR: No testing script found for {}\n'.format(file))
+            print('ERROR: No testing script found for {}'
+                  .format(file), file=sys.stderr)
             return None
         test_mod = imp.load_module(test_name, *mod_junk)
     return test_mod.TESTER
@@ -64,6 +70,7 @@ def logger(file):
     def writer(msg):
         log.write(msg + '\n')
 
+    writer.__dict__['file'] = logfile
     yield writer
 
     log.close()
