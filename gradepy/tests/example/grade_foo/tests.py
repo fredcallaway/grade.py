@@ -17,7 +17,34 @@ function tests for error carried forward.
 from gradepy import Tester, Check
 
 from master import foo
+
+print('HERE I AM')
+
 TESTER = Tester(foo, points=1865, note='An example grading program.')
+
+@TESTER.setup(every_time=True)
+def setup(student_file):
+    """This function runs on the student_file before testing.
+
+    The example will wrap a bare script with a main() function,
+    allowing it to be tested with gradepy. However, this would
+    break the example, so we hide it with a return."""
+
+    return
+    
+    with open(student_file, 'r') as f:
+        indented = ['\t' + line for line in f]
+    with open('/Users/fred/grade.py/gradepy/test', 'w+') as f:
+        if indented[0].startswith('#'):
+            del indented[0]  # keep line numbers the same
+        else:
+            print ("WARNING: No comment on first line. We couldn't fix the line numbers\n"
+                   "which will all be one higher due to the def main(): line."
+        f.write('def main():\n')
+        f.write(''.join(indented))
+
+
+
 
 
 @TESTER.register(tests=['add_one'])

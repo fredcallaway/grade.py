@@ -62,6 +62,7 @@ class Tester(object):
     def __init__(self, master_mod, points=0, note=None):
         self.master_mod = master_mod
         self._adjust_modules(master_mod)
+        self.setup_func = None
         self.test_funcs = []
         self.points = points
         self.note = note
@@ -85,12 +86,36 @@ class Tester(object):
             self.log('\n' + self.note + '\n')
         if self.points:
             self.log('Maximum points: {}'.format(self.points))
+
         if func_re:
             self.log("Filtering test functions by regex: '{}'".format(func_re.pattern))
             tests = (f for f in self.test_funcs if func_re.search(f.__name__))
         else:
             tests= self.test_funcs
+
+        if self.setup_func:
+            self.setup_func(student_file)
+
         self._run_tests(tests)
+
+    def setup(self, every_time):
+        def decorator(setup_func):
+            def full_setup_func(student_file):
+                path = os.path.dirname(student_file)
+                file = os.path.join(path, '.gradepy')
+                # Check if setup has already been run.
+                if not every_time and os.path.exists(file) :
+                    return
+
+                # Run the setup function from test script.
+                setup_func(student_file)
+                # Mark the directory as having been setup.
+                with open(file, 'a+') as f:
+                    f.write('DEBUG')
+
+            self.setup_func = full_setup_func
+        return decorator
+
 
     def register(self, tests=[], depends=[]):
         """Decorator to mark a function as a test function of this Tester.
@@ -101,7 +126,6 @@ class Tester(object):
             self.test_funcs.append(test_func)
             setattr(test_func, 'tests', set(tests))
             setattr(test_func, 'depends', set(depends))
-            return test_func
         return decorator
 
     def _get_modules(self, student_file):
