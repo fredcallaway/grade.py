@@ -1,5 +1,6 @@
 import csv
 import re
+from collections import defaultdict
 
 class ParseError(Exception): pass
     
@@ -12,18 +13,42 @@ POINT_RE = re.compile(r'\(\([ ]*-([.\d]+)[ ]*\)\)')  # (( -2.5 ))
 
 def main(files):
     """Creates a csv from a sequence of feedback files."""
-    with open('grades.csv', 'w+') as csvfile:
-        writer = csv.writer(csvfile, delimiter='|')
-        writer.writerow(('netid', 'module', 'points'))
-        for fname in files:
-            with open(fname) as f:
-                feedback = f.read()
-                try:
-                    writer.writerow(parse_feedback(feedback))
-                except ParseError:
-                    print("ERROR: could not parse file: '{}'".format(fname))
+    scores = parse_files(files)
+    write_csv(scores)
 
-        # TODO: include feedback?
+
+def parse_files(files):
+    for fname in files:
+        with open(fname) as f:
+            feedback = f.read()
+            try:
+                netid, module, points = parse_feedback(feedback)
+                yield netid, module, points, feedback
+            except ParseError:
+                print("ERROR: could not parse file: '{}'".format(fname))
+
+
+def write_csv(scores):
+    all_scores = defaultdict(dict)
+    all_feedback = defaultdict(list)
+    all_modules = set()
+    for netid, module, points, feedback in scores:
+        all_scores[netid][module] = points
+        all_feedback[netid].append(feedback)
+        all_modules.add(module)
+
+    with open('grades.csv', 'w+') as csvfile:
+        fieldnames = ['netid'] + list(all_modules) + ['feedback']
+        writer = csv.DictWriter(csvfile, fieldnames, escapechar='"')
+        writer.writeheader()
+
+        for netid, mod_scores in all_scores.items():
+            row = mod_scores
+            row['netid'] = netid
+            feedback = '\n\n'.join(all_feedback[netid])
+            row['feedback'] = '<pre>' + feedback + '</pre>'
+
+            writer.writerow(row)
 
 
 def parse_feedback(feedback):
@@ -40,7 +65,6 @@ def parse_feedback(feedback):
     earned_points = max_points - lost_points
 
     return netid, module, earned_points
-
 
 def _scan(lines, regex):
     for line in lines:
@@ -79,4 +103,5 @@ def _take_until(lines, regex):
 
 
 if __name__ == '__main__':
-    main(['example/flc37/foo_feedback.txt'])
+    main(['tests/example/submissions/flc37/foo_feedback.txt',
+          'tests/example/submissions/flc38/foo_feedback.txt'])
