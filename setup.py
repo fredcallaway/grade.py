@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='gradepy',
-      version='0.2',
+      version='0.3',
       description='Tools for automated grading of python assignments.',
       long_description=readme(),
       keywords='grade grading python framework student assignment',
