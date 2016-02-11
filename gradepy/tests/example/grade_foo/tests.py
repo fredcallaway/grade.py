@@ -14,37 +14,17 @@ Test functions must be marked with the TESTER.register decorator.
 You can optioally provide information about what function(s) the
 function tests for error carried forward.
 """
-from gradepy import Tester, Check
+from gradepy import Tester, Check, utils
 
 from master import foo
 
-print('HERE I AM')
-
 TESTER = Tester(foo, points=1865, note='An example grading program.')
 
-@TESTER.setup(every_time=True)
+@TESTER.setup(every_time=False)
 def setup(student_file):
-    """This function runs on the student_file before testing.
-
-    The example will wrap a bare script with a main() function,
-    allowing it to be tested with gradepy. However, this would
-    break the example, so we hide it with a return."""
-
+    # This function will run on the student file the first time
+    # grade.py is run on a file in that directory.
     return
-    
-    with open(student_file, 'r') as f:
-        indented = ['\t' + line for line in f]
-    with open('/Users/fred/grade.py/gradepy/test', 'w+') as f:
-        if indented[0].startswith('#'):
-            del indented[0]  # keep line numbers the same
-        else:
-            print ("WARNING: No comment on first line. We couldn't fix the line numbers\n"
-                   "which will all be one higher due to the def main(): line."
-        f.write('def main():\n')
-        f.write(''.join(indented))
-
-
-
 
 
 @TESTER.register(tests=['add_one'])
@@ -147,13 +127,15 @@ def test_raw_input(module):
     """Demonstrates testing with stdin and stdout."""
     
     # We simulate stdin as a queue. Push to the queue like so:
-    TESTER.stdin.put('pig')
+    #TESTER.stdin.put('pig')
     # The next time the module calls raw_input(), it will get 'pig'
 
     # We also capture all stdout of code exectude in a Check. If
     # the student and master module print different things while
     # executing cook_stdin(), this will be noted in the feedback.
-    yield Check('cook_stdin()')
+
+
+    yield Check('cook_stdin()', stdin='pig')
 
 
 '''

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """Object oriented grading of python modules.
 
 Defines an abstract base class, Tester, to be used for grading
@@ -19,7 +21,7 @@ import re
 import string
 import sys
 
-
+import utils
 
 class Check(object):
     """Provides an interface for testing with Tester.
@@ -35,26 +37,33 @@ class Check(object):
     and note will be formatted with the calling scope's name space, thus they
     can include {variable_name}s.
     """
-    def __init__(self, expr, note=''):
+    def __init__(self, expr, note='', stdin=()):
         # Yes, python allows us to access the local name space of the
         # calling function (or module). This prevents us from requiring
         # the user to supply locals() as an argument.
+        if not isinstance(expr, str):
+            raise TypeError('Check expr must be a string.')
         self.env = inspect.stack()[1][0].f_locals
         self.expr = literal_format(expr, **self.env)
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
         else:
             self.note = ''
+        
+        if isinstance(stdin, str):
+            sys.stdin.put(stdin)
+        else:
+            for x in stdin:
+                sys.stdin.put(x)
 
         # Evaluate expr within env
         module_env = self.env['module'].__dict__
-        with capture_stdout() as out:
+        with utils.capture_stdout() as out:
             try:
                 self.val = eval(self.expr, module_env, self.env)
             except Exception as e:
                 self.val = StudentException(e, skip=4)
-        self.stdout = str(out) if str(out) else None
-
+        self.stdout = out.captured
 
 
 class Tester(object):
@@ -62,6 +71,7 @@ class Tester(object):
     def __init__(self, master_mod, points=0, note=None):
         self.master_mod = master_mod
         self._adjust_modules(master_mod)
+        self.log_correct = True
         self.setup_func = None
         self.test_funcs = []
         self.points = points
@@ -75,6 +85,9 @@ class Tester(object):
         # This state is student specific, and is thus reset upon every call.
         self.log = log_func
         self.bad_funcs = set()
+
+        if self.setup_func:
+            self.setup_func(student_file)
         self.student_mod, self.ecf_mod = self._get_modules(student_file)
         self._adjust_modules(self.student_mod, self.ecf_mod)
 
@@ -93,9 +106,6 @@ class Tester(object):
         else:
             tests= self.test_funcs
 
-        if self.setup_func:
-            self.setup_func(student_file)
-
         self._run_tests(tests)
 
     def setup(self, every_time):
@@ -104,7 +114,7 @@ class Tester(object):
                 path = os.path.dirname(student_file)
                 file = os.path.join(path, '.gradepy')
                 # Check if setup has already been run.
-                if not every_time and os.path.exists(file) :
+                if not every_time and os.path.exists(file):
                     return
 
                 # Run the setup function from test script.
@@ -117,7 +127,7 @@ class Tester(object):
         return decorator
 
 
-    def register(self, tests=[], depends=[]):
+    def register(self, tests=[], depends=[], manual=False):
         """Decorator to mark a function as a test function of this Tester.
 
         Optionally, specifies the student functions that the function
@@ -126,6 +136,7 @@ class Tester(object):
             self.test_funcs.append(test_func)
             setattr(test_func, 'tests', set(tests))
             setattr(test_func, 'depends', set(depends))
+            setattr(test_func, 'manual', manual)
         return decorator
 
     def _get_modules(self, student_file):
@@ -150,7 +161,8 @@ class Tester(object):
     def _adjust_modules(self, *modules):
         for mod in modules:
             # Don't print the message for raw_input
-            mod.raw_input = lambda msg=None: raw_input()
+            #mod.raw_input = lambda msg=None: raw_input()
+            pass
 
     def _run_tests(self, test_funcs):
         """Runs all test methods of the instance as given by self.tests."""
@@ -171,6 +183,11 @@ class Tester(object):
             if test.__doc__:
                 self.log('"""' + test.__doc__.strip() + '"""')
 
+        if test.manual:
+            self.log('')
+            self._run_manual_test(test)
+            return
+
         student_mod = self.ecf_mod if ecf else self.student_mod
         student_out = test(student_mod)
         master_out = test(self.master_mod)
@@ -180,6 +197,15 @@ class Tester(object):
             self._handle_ecf(test, ecf)
 
         return mistakes
+
+    def _run_manual_test(self, test):
+        self.stdin.clear()
+        try:
+            test(self.master_mod, self.student_mod)
+        except Exception as e:
+            err = StudentException(e)
+            self.log('\nFatal exception in manual testing function. '
+                     'Cannot finish test.\n' + str(err))
 
     def _compare(self, master_out, student_out):
         # Compute all of master_out first so that stdin/stdout doesn't get mixed
@@ -205,7 +231,7 @@ class Tester(object):
                     # The test function should never raise exceptions when using
                     # the master module. The test function must be broken.
                     raise TestError('Exception raised when running test function '
-                                    'using master module:\n' + str(master.val))
+                                    'using master module:\n' + master.val.full_tb)
                 mistakes.append(self._compare_one(master, student))
 
         # Test function is done with master, confirm that it is done with student.
@@ -226,14 +252,20 @@ class Tester(object):
         mistake = False
 
         if master.val != student.val or type(master.val) != type(student.val):
-            self.log(literal_format('\n{master.expr:q} should be {master.val}, '
+            self.log(literal_format('\n✘  {master.expr:q} should be {master.val}, '
                      'but it is {student.val}{student.note:q}', **locals()))
             mistake = True
 
         if master.stdout != student.stdout:
-            self.log(literal_format('\n{master.expr:q} should print {master.stdout}, '
-                     'but it prints {student.stdout}{student.note:q}', **locals()))
+            self.log(literal_format('\n✘  {master.expr:q} should print:\n{master.stdout:q}'
+                     '\nbut it actually prints:\n{student.stdout:q}{student.note:q}', **locals()))
             mistake = True
+
+        if self.log_correct and not mistake:
+            if student.val:
+                self.log(literal_format('\n✓  {master.expr:q} is {student.val}', **locals()))
+            if student.stdout:
+                self.log(literal_format('\n✓  {master.expr:q} prints:\n{student.stdout:q}', **locals()))
 
         return mistake
 
@@ -269,6 +301,7 @@ class StudentException(Exception):
         self.exception = exception
         
         tb = traceback.format_exc()
+        self.full_tb = tb
         self.tb = tb.split('\n', skip)[-1].rstrip()
 
     def __str__(self):
@@ -313,35 +346,16 @@ class FakeStdin:
 
     def readline(self):
         try:
-            return self._queue.popleft()
+            line = self._queue.popleft()
+            if callable(line):
+                # This allows something like (lambda: time.sleep(1) or 'foo').
+                line = line()
+            # We write the line to make it look like someone typed it.
+            sys.stdout.write(line + '\n')
+            return line
         except IndexError:
             raise IOError('No stdin available.')
 
     def clear(self):
         self._queue.clear()
 
-
-from contextlib import contextmanager
-from cStringIO import StringIO
-@contextmanager
-def capture_stdout():
-    oldout = sys.stdout
-    newout = StringIO()
-    sys.stdout = newout
-
-    class Out:
-        def __str__(self):
-            try:
-                val = newout.getvalue()
-                self._val = val
-                return val
-            except ValueError:
-                # After closing context manager.
-                return self._val
-
-    result = Out()
-    yield result
-
-    str(result)  # set result._val before closing newout
-    newout.close()
-    sys.stdout = oldout
