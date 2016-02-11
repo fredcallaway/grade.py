@@ -97,7 +97,6 @@ class Check(object):
             return master.stdout == student_stdout
 
 
-
 class Tester(object):
     """A class for grading modules."""
     def __init__(self, master_mod, points=0, note=None):
@@ -227,7 +226,8 @@ class Tester(object):
         mistakes = self._compare(master_out, student_out)
         if any(mistakes):
             self._handle_ecf(test, ecf)
-
+        else:
+            self.log('All tests passed!')
         return mistakes
 
     def _run_manual_test(self, test):
@@ -382,7 +382,6 @@ class FakeStdin:
             if callable(line):
                 # This allows something like (lambda: time.sleep(1) or 'foo').
                 line = line()
-                print('LINE IS:', line)
             # We write the line to make it look like someone typed it.
             sys.stdout.write(line + '\n')
             return line
