@@ -37,33 +37,65 @@ class Check(object):
     and note will be formatted with the calling scope's name space, thus they
     can include {variable_name}s.
     """
-    def __init__(self, expr, note='', stdin=()):
+    def __init__(self, expr, note='', stdin=(), check=None, stdout_check=None):
         # Yes, python allows us to access the local name space of the
         # calling function (or module). This prevents us from requiring
         # the user to supply locals() as an argument.
         if not isinstance(expr, str):
             raise TypeError('Check expr must be a string.')
+
         self.env = inspect.stack()[1][0].f_locals
         self.expr = literal_format(expr, **self.env)
+        self._check = check
+        self._stdout_check = stdout_check
+
+        # Set note.
         if note:
             self.note = '\n Note: ' + literal_format(note, **self.env)
         else:
             self.note = ''
         
+        # Write supplied stdin.
         if isinstance(stdin, str):
             sys.stdin.put(stdin)
         else:
             for x in stdin:
                 sys.stdin.put(x)
 
-        # Evaluate expr within env
+        # Evaluate expr within env.
         module_env = self.env['module'].__dict__
         with utils.capture_stdout() as out:
             try:
                 self.val = eval(self.expr, module_env, self.env)
             except Exception as e:
                 self.val = StudentException(e, skip=4)
-        self.stdout = out.captured
+        if out.captured:
+            self.stdout = '----begin stdout----\n' + out.captured + '\n-----end stdout-----'
+
+    def check(self, student_val):
+        """Returns True if student_val is correct."""
+        master = self  # This function should only ever be called as master.check()
+        if not self.env['module'].__name__.startswith('master'):
+            raise TestError('Attempted to call check() from the student Check.')
+        
+        if self._check:
+            # Use the check function provided, which may be 
+            # more lenient than 100% match to master.val
+            return self._check(master.val, student_val)
+        else:
+            return master.val == student_val and type(master.val) == type(student_val)
+
+    def stdout_check(self, student_stdout):
+        """Returns True if student stdout is correct."""
+        master = self
+        if not self.env['module'].__name__.startswith('master'):
+            raise TestError('Attempted to call stdout_check() from the student Check.')
+
+        if self._stdout_check:
+            return self._stdout_check(master.stdout, student_stdout)
+        else:
+            return master.stdout == student_stdout
+
 
 
 class Tester(object):
@@ -71,7 +103,7 @@ class Tester(object):
     def __init__(self, master_mod, points=0, note=None):
         self.master_mod = master_mod
         self._adjust_modules(master_mod)
-        self.log_correct = True
+        self.log_correct = False
         self.setup_func = None
         self.test_funcs = []
         self.points = points
@@ -251,14 +283,14 @@ class Tester(object):
 
         mistake = False
 
-        if master.val != student.val or type(master.val) != type(student.val):
+        if not master.check(student.val):
             self.log(literal_format('\n✘  {master.expr:q} should be {master.val}, '
                      'but it is {student.val}{student.note:q}', **locals()))
             mistake = True
 
-        if master.stdout != student.stdout:
+        if not master.stdout_check(student.stdout):
             self.log(literal_format('\n✘  {master.expr:q} should print:\n{master.stdout:q}'
-                     '\nbut it actually prints:\n{student.stdout:q}{student.note:q}', **locals()))
+                     '\n\nbut it actually prints:\n{student.stdout:q}{student.note:q}', **locals()))
             mistake = True
 
         if self.log_correct and not mistake:
@@ -350,6 +382,7 @@ class FakeStdin:
             if callable(line):
                 # This allows something like (lambda: time.sleep(1) or 'foo').
                 line = line()
+                print('LINE IS:', line)
             # We write the line to make it look like someone typed it.
             sys.stdout.write(line + '\n')
             return line
