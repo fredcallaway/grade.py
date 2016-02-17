@@ -1,0 +1,68 @@
+%YAML 1.2
+---
+name: feedback
+scope: text.feedback
+first_line_match: "#feedback"
+
+contexts:
+  main:
+    - match: "#feedback"
+      scope: comment
+    - match: '"""'
+      push: docstring
+    - match: "==============+|-------+\\(.*\\)-------+"
+      scope: storage.type
+
+    - match: "(Maximum points:) (\\d+)"
+      captures:
+        1: entity.name.function
+        2: text
+    - match: "All tests passed!|Problem solved!"
+      scope: markup.inserted
+    - match: "\\(\\( +-[\\d]] +\\)\\)"
+      scope: markups.deleted
+
+    - match: "---+begin stdout---+"
+      scope: comment
+      push: stdout
+    - match: "Note:|GRADER:"
+      scope: entity.name.function
+
+    - match: "(✘) .* (should be) .* (but it is)"
+      captures: 
+        1: markup.deleted
+        2: entity.name.function
+        3: entity.name.function
+    - match: "(✘) .* (should print:)"
+      captures: 
+        1: markup.deleted
+        2: entity.name.function
+    - match: "(✘).*(raised an exception:)"
+      captures: 
+        1: markup.deleted
+        2: entity.name.function
+    - match: "(but) (it actually prints:)"
+      captures: 
+        1: entity.name.function
+        2: entity.name.function
+
+    - match: "\\(\\([ ]+-[\\d\\.]+[ ]+\\)\\)"
+      scope: markup.deleted
+
+      # - match: "^\\s*(#)\\s*\\b(include)\\b"
+      #   captures:
+      #     1: meta.preprocessor.c++
+      #     2: keyword.control.include.c++
+
+  stdout:
+    - meta_scope: string
+    - match: "----+end stdout----+"
+      scope: comment
+      pop: true
+
+  docstring:
+    - meta_scope: comment
+    - match: \\.
+      scope: constant.character.escape.c
+    - match: '"""'
+      pop: true
