@@ -3,7 +3,7 @@
 """Object oriented grading of python modules.
 
 Defines an abstract base class, Tester, to be used for grading
-python modules. This module differs from standard testing 
+python modules. This module differs from standard testing
 strategies in two major ways. First, it relies on a correct
 implementation of the module, making the creation of test
 cases very easy. Second, it is designed to identify graded
@@ -28,7 +28,7 @@ class Check(object):
 
     Args:
         expr (str): a python expression, the value of which will be verified.
-        note (str): a note to provide in the feedback if `expr` does not 
+        note (str): a note to provide in the feedback if `expr` does not
           evalueate to the same value under the student and master mdoules.
 
     See show_grade.py for example usage. Key things to note are that side
@@ -54,7 +54,7 @@ class Check(object):
             self.note = '\n Note: ' + literal_format(note, **self.env)
         else:
             self.note = ''
-        
+
         # Write supplied stdin.
         if isinstance(stdin, str):
             sys.stdin.put(stdin)
@@ -71,15 +71,17 @@ class Check(object):
                 self.val = StudentException(e, skip=4)
         if out.captured:
             self.stdout = '----begin stdout----\n' + out.captured + '\n-----end stdout-----'
+        else:
+            self.stdout = None
 
     def check(self, student_val):
         """Returns True if student_val is correct."""
         master = self  # This function should only ever be called as master.check()
         if not self.env['module'].__name__.startswith('master'):
             raise TestError('Attempted to call check() from the student Check.')
-        
+
         if self._check:
-            # Use the check function provided, which may be 
+            # Use the check function provided, which may be
             # more lenient than 100% match to master.val
             return self._check(master.val, student_val)
         else:
@@ -175,7 +177,7 @@ class Tester(object):
         path = os.path.dirname(student_file)
         mod_name = os.path.basename(student_file)[:-3]
         sys.path.append(path)
-        try:        
+        try:
             mod_junk = imp.find_module(mod_name, [path])
         except ImportError as e:
             if not os.path.isfile(student_file):
@@ -243,7 +245,7 @@ class Tester(object):
         # Compute all of master_out first so that stdin/stdout doesn't get mixed
         # between student and master.
         master_out = list(master_out)
-        
+
         self.stdin.clear()  # don't let unused stdin bleed into this test func
         mistakes = []
         for master in master_out:
@@ -270,9 +272,9 @@ class Tester(object):
         foo = next(student_out, None)
         if foo is not None:
             raise TestError('Test function yielded too many Checks for student.')
-        
+
         return mistakes
-        
+
 
     def _compare_one(self, master, student):
         if isinstance(student.val, StudentException):
@@ -331,7 +333,7 @@ class StudentException(Exception):
     """
     def __init__(self, exception, skip=1):
         self.exception = exception
-        
+
         tb = traceback.format_exc()
         self.full_tb = tb
         self.tb = tb.split('\n', skip)[-1].rstrip()
